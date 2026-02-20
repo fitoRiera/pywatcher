@@ -1,13 +1,4 @@
-"""Aplicación de ejemplo con Envisage + Pyface Tasks.
 
-Requisitos aproximados:
-    pip install envisage pyface traits traitsui pyqt5
-
-Ejecución:
-    python -m src.envisage_app
-    o
-    python src/envisage_app.py
-"""
 from envisage.core_plugin import CorePlugin
 from envisage.plugin import Plugin
 from envisage.ui.tasks.api import TaskFactory, TasksApplication, TasksPlugin
@@ -18,6 +9,7 @@ from pyface.tasks.action.schema import SMenu, SMenuBar, SToolBar
 from pyface.tasks.api import PaneItem, Task, TaskLayout, TraitsDockPane, TraitsTaskPane
 from traits.api import List, Str
 from traitsui.api import Item, TextEditor, UItem, View
+from pywatcher.ui.web_view_task import WebViewTaskPane
 
 
 class EditorPrincipalPane(TraitsTaskPane):
@@ -67,18 +59,17 @@ class PanelLateralPane(TraitsDockPane):
         self.control.setStyleSheet("background-color: #DFF7E2;")
 
 
-class TareaPrincipal(Task):
-    id = "pywatcher.tarea_principal"
+class MainWindowTask(Task):
+    id = "pywatcher.ui.main_window.task"
     name = "PyWatcher - Envisage"
 
     def create_central_pane(self):
-        return EditorPrincipalPane()
+        return WebViewTaskPane()
 
     def create_dock_panes(self):
         return [PanelLateralPane()]
 
     def _default_layout_default(self):
-        # Coloca el panel lateral a la derecha del editor principal.
         return TaskLayout(right=PaneItem("pywatcher.panel_lateral"))
 
     def _status_bar_default(self):
@@ -125,28 +116,16 @@ class TareaPrincipal(Task):
             self.status_bar.message = "Estado: acción ejecutada"
 
 
-class PluginTareaPrincipal(Plugin):
-    id = "pywatcher.plugin_tarea_principal"
-    name = "Plugin de tarea principal"
+class MainWindowPlugin(Plugin):
+    id = "pywatcher.ui.main_window"
+    name = "Plugin that define the default main window"
     tasks = List(contributes_to="envisage.ui.tasks.tasks")
 
     def _tasks_default(self):
         return [
             TaskFactory(
-                id="pywatcher.tarea_principal",
-                name="Ventana principal",
-                factory=TareaPrincipal,
+                id="pywatcher.ui.main_window.task",
+                name="Main window task",
+                factory=MainWindowTask,
             )
         ]
-
-
-def main():
-    app = TasksApplication(
-        id="pywatcher.envisage_app",
-        plugins=[CorePlugin(), TasksPlugin(), PluginTareaPrincipal()],
-    )
-    app.run()
-
-
-if __name__ == "__main__":
-    main()
