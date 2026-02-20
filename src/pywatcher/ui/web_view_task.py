@@ -1,13 +1,42 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from pyface.qt import QtWidgets
 from pyface.tasks.api import TraitsTaskPane
 from traits.api import Any, Str, observe
 
 try:
+    from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
     from PySide6.QtWebEngineWidgets import QWebEngineView
 except Exception:  # pragma: no cover - depends on optional Qt module
     QWebEngineView = None
+    QWebEnginePage = None
+    QWebEngineProfile = None
+
+_WEBENGINE_CACHE_ROOT = Path.home() / ".cache" / "pywatcher" / "qtwebengine"
+_CLEAR_HTTP_CACHE_ON_START = False
+
+_DEFAULT_HTML = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h3>BasicExample.html no encontrado.</h3>
+</body>
+</html>
+"""
+
+
+def _load_default_html() -> str:
+    html_path = Path(__file__).with_name("BasicExample.html")
+    try:
+        return html_path.read_text(encoding="utf-8")
+    except OSError:
+        return _DEFAULT_HTML
 
 
 class WebViewTaskPane(TraitsTaskPane):
@@ -15,40 +44,16 @@ class WebViewTaskPane(TraitsTaskPane):
 
     id = "pywatcher.web_view"
     name = "Web Viewer"
-    html_text = Str(
-        """\
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>PyWatcher</title>
-    <style>
-      body { font-family: sans-serif; padding: 20px; }
-      .counter { font-size: 2rem; font-weight: bold; color: #1f6feb; }
-    </style>
-  </head>
-  <body>
-    <h1>PyWatcher</h1>
-    <p>Live counter (updates every second):</p>
-    <div id="counter" class="counter">0</div>
-    <script>
-      let count = 0;
-      const counterElement = document.getElementById("counter");
-      setInterval(() => {
-        count += 1;
-        counterElement.textContent = String(count);
-      }, 1000);
-    </script>
-  </body>
-</html>
-"""
-    )
+    html_text = Str(_load_default_html())
 
     _web_control = Any()
+    _web_profile = Any()
+    _web_page = Any()
 
     def create(self, parent):
         if QWebEngineView is not None:
             control = QWebEngineView(parent)
+            self._configure_web_engine(control)
             control.setHtml(self.html_text)
         else:
             control = QtWidgets.QTextBrowser(parent)
@@ -60,6 +65,24 @@ class WebViewTaskPane(TraitsTaskPane):
     def set_html(self, html: str) -> None:
         """Update the HTML shown in the pane."""
         self.html_text = html
+
+    def _configure_web_engine(self, control) -> None:
+        if QWebEngineProfile is None or QWebEnginePage is None:
+            return
+
+        _WEBENGINE_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
+        profile = QWebEngineProfile("pywatcher.web_view", control)
+        profile.setHttpCacheType(QWebEngineProfile.DiskHttpCache)
+        profile.setCachePath(str(_WEBENGINE_CACHE_ROOT / "http-cache"))
+        profile.setPersistentStoragePath(str(_WEBENGINE_CACHE_ROOT / "storage"))
+        profile.setPersistentCookiesPolicy(QWebEngineProfile.ForcePersistentCookies)
+        if _CLEAR_HTTP_CACHE_ON_START:
+            profile.clearHttpCache()
+
+        page = QWebEnginePage(profile, control)
+        control.setPage(page)
+        self._web_profile = profile
+        self._web_page = page
 
     @observe("html_text")
     def _on_html_text_changed(self, event):

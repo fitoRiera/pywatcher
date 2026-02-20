@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WorldWind Web - Basic Example</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #globeCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #000;
+    }
+
+    .title {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #111;
+      font-size: 14px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="title">NASA WorldWind Web - Basic Example</div>
+  <canvas id="globeCanvas"></canvas>
+
+  <script>
+    function initWorldWind() {
+      const wwd = new WorldWind.WorldWindow("globeCanvas");
+
+      // Add a few default layers.
+      wwd.addLayer(new WorldWind.BMNGLayer());
+      wwd.addLayer(new WorldWind.BMNGLandsatLayer());
+      wwd.addLayer(new WorldWind.AtmosphereLayer());
+      wwd.addLayer(new WorldWind.CompassLayer());
+      wwd.addLayer(new WorldWind.CoordinatesDisplayLayer(wwd));
+      wwd.addLayer(new WorldWind.ViewControlsLayer(wwd));
+
+      // Start over Madrid, Spain.
+      wwd.navigator.lookAtLocation.latitude = 40.4168;
+      wwd.navigator.lookAtLocation.longitude = -3.7038;
+      wwd.navigator.range = 7e6;
+    }
+
+    function loadWorldWindWithFallback(urls, index = 0) {
+      if (index >= urls.length) {
+        const title = document.querySelector(".title");
+        title.textContent = "Error: WorldWind could not be loaded from any source.";
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = urls[index];
+      script.async = true;
+
+      script.onload = () => {
+        if (typeof WorldWind === "undefined") {
+          loadWorldWindWithFallback(urls, index + 1);
+          return;
+        }
+        initWorldWind();
+      };
+
+      script.onerror = () => loadWorldWindWithFallback(urls, index + 1);
+      document.head.appendChild(script);
+    }
+
+    loadWorldWindWithFallback([
+      "https://files.worldwind.arc.nasa.gov/artifactory/web/0.11.0/worldwind.min.js",
+      "https://cdn.jsdelivr.net/npm/@nasaworldwind/worldwind@0.11.0/build/dist/worldwind.min.js",
+      "https://unpkg.com/@nasaworldwind/worldwind@0.11.0/build/dist/worldwind.min.js"
+    ]);
+  </script>
+</body>
+</html>
