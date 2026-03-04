@@ -3,8 +3,6 @@ from typing import Protocol
 from pyface.tasks.traits_task_pane import TraitsTaskPane
 from traits.has_traits import Interface
 
-WEB_VIEWER_SERVICE_PROTOCOL='es.ara.envisage.web_viewer'
-
 
 class IWebViewerService(Interface):
 

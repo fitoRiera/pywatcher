@@ -14,6 +14,7 @@ from envisage.ui.tasks.tasks_plugin import TasksPlugin
 
 from es.ara.envisage.main_window.main_window_plugin import MainWindowPlugin
 from es.ara.envisage.web_viewer.web_viewer_plugin.web_viewer_plugin import WebViewerPlugin
+from es.ara.envisage.wwd.wwd_plugin import WwdPlugin
 
 
 def main():
@@ -23,7 +24,8 @@ def main():
             CorePlugin(),
             TasksPlugin(),
             MainWindowPlugin(),
-            WebViewerPlugin()
+            WebViewerPlugin(),
+            WwdPlugin(),
         ],
     )
     app.run()
