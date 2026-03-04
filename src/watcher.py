@@ -12,7 +12,8 @@ from envisage.core_plugin import CorePlugin
 from envisage.ui.tasks.tasks_application import TasksApplication
 from envisage.ui.tasks.tasks_plugin import TasksPlugin
 
-from pywatcher.ui.main_window import MainWindowPlugin
+from es.ara.envisage.main_window.main_window_plugin import MainWindowPlugin
+from es.ara.envisage.web_viewer.web_viewer_plugin.web_viewer_plugin import WebViewerPlugin
 
 
 def main():
@@ -22,6 +23,7 @@ def main():
             CorePlugin(),
             TasksPlugin(),
             MainWindowPlugin(),
+            WebViewerPlugin()
         ],
     )
     app.run()
