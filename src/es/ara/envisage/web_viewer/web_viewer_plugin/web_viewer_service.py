@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -52,18 +53,41 @@ class WebChannelBackend(QtCore.QObject):
 
     messageReceived = QtCore.Signal(str)
     messageToJavascript = QtCore.Signal(str)
+    javascriptResponse = QtCore.Signal(str)
 
-    @QtCore.Slot(str)
-    def send_to_python(self, message: str) -> None:
+    def __init__(self, page):
+        super().__init__(page)
+        self._page = page
+
+    @QtCore.Slot(str, result=str)
+    def send_to_python(self, message: str) -> str:
         logger.info("Mensaje recibido desde JS: %s", message)
         self.messageReceived.emit(message)
         self.send_to_javascript()
+        return f"ACK: {message}"
 
     @QtCore.Slot(result=str)
     def send_to_javascript(self) -> str:
         message = "Hola desde Python"
-        self.messageToJavascript.emit(message)
+        #self.messageToJavascript.emit(message)
+        self.call_javascript("hola desde Python", response_handler=logging.error)
         return message
+
+    @QtCore.Slot(str)
+    def call_javascript(self, message: str, response_handler:callable=None) -> None:
+        if self._page is None:
+            logger.warning("No hay QWebEnginePage asociado para ejecutar JavaScript.")
+            return
+
+        script = f"window.handleFromPython({message!r})"
+
+        def _on_reply(result):
+            nonlocal response_handler
+            logger.info("Respuesta desde JS: %s", result)
+            if response_handler:
+                response_handler(result)
+
+        self._page.runJavaScript(script, _on_reply)
 
 
 class LoggingWebEnginePage(QWebEnginePage):
