@@ -51,15 +51,19 @@ class WebChannelBackend(QtCore.QObject):
     """QObject exposed to JavaScript through QWebChannel as `backend`."""
 
     messageReceived = QtCore.Signal(str)
+    messageToJavascript = QtCore.Signal(str)
 
     @QtCore.Slot(str)
     def send_to_python(self, message: str) -> None:
         logger.info("Mensaje recibido desde JS: %s", message)
         self.messageReceived.emit(message)
+        self.send_to_javascript()
 
     @QtCore.Slot(result=str)
     def send_to_javascript(self) -> str:
-        return "Hola desde Python"
+        message = "Hola desde Python"
+        self.messageToJavascript.emit(message)
+        return message
 
 
 class LoggingWebEnginePage(QWebEnginePage):

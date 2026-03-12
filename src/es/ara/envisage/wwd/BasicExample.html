@@ -69,21 +69,38 @@
   <canvas id="globeCanvas"></canvas>
   <script>
     var button = document.getElementById("sendToPythonButton");
-
-    function setStatus(message) {
-      var status = document.getElementById("connection_status");
-      connection_status.textContent = "Estado: conectado!!"
-    }
+    var backendHandlersReady = false;
 
     function isBackendReady() {
       return Boolean(window.backend && typeof window.backend.send_to_python === "function");
     }
 
+    function setStatus(message) {
+      var status = document.getElementById("connection_status");
+      //connection_status.textContent = "Estado: conectado!!"
+    }
+
+    function handleBackendMessage(message){
+      console.log("Mensaje de python recibido: ", message)
+    }
+
+    function initBackendHandlers(){
+    console.log("initBackendHandlers, isBackendReady=", isBackendReady(), ", backendHandlersReady=",backendHandlersReady);
+      if(isBackendReady() && !backendHandlersReady){
+        window.backend.messageToJavascript.connect(handleBackendMessage);
+        backendHandlersReady = true;
+        console.log("backendHandlers initialized");
+      }
+    }
+
     window.addEventListener("backend-ready", function () {
       console.log("evento backend-ready recibido en BasicExample.html");
+      initBackendHandlers();
       setStatus("backend listo");
     });
     console.log("listener registered");
+
+    initBackendHandlers();
 
     window.setTimeout(function () {
       if (!isBackendReady()) {
@@ -92,7 +109,6 @@
     }, 2500);
 
     // Si el evento 'backend-ready' ocurrió antes de registrar el listener.
-    console.log("window.channel = ", window.channel);
     if (isBackendReady()) {
       setStatus("backend listo");
     }
@@ -106,8 +122,7 @@
       }
       try {
         console.log("enviando mensaje a Python...");
-        console.log(channel.objects.backend);
-        window.backend.send_to_python("Mensaje desde el botón en BasicExample.html");
+        window.backend.send_to_python("Mensaje enviado desde el botón en BasicExample.html");
         console.log("mensaje enviado");
       } catch (error) {
         console.error("Fallo al invocar backend.send_to_python:", error, window.backend);
