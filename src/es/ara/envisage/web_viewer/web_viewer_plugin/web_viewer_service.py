@@ -8,20 +8,65 @@ from pyface.qt import QtCore, QtWidgets
 from pyface.tasks.api import TraitsTaskPane
 from traits.api import Any, Str, observe
 
-try:
-    from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
-    from PySide6.QtWebEngineWidgets import QWebEngineView
-except Exception:  # pragma: no cover - depends on optional Qt module
-    QWebEngineView = None
-    QWebEnginePage = None
-    QWebEngineProfile = None
-    QWebEngineSettings = None
+_WEBENGINE_IMPORT_ERROR = None
+_WEBCHANNEL_IMPORT_ERROR = None
+
+QWebEngineView = None
+QWebEnginePage = None
+QWebEngineProfile = None
+QWebEngineSettings = None
+QWebChannel = None
+
+for _binding_name in ("PySide6", "PyQt6", "PyQt5"):
+    try:
+        if _binding_name == "PySide6":
+            from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
+            from PySide6.QtWebEngineWidgets import QWebEngineView
+            from PySide6.QtWebChannel import QWebChannel
+        elif _binding_name == "PyQt6":
+            from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
+            from PyQt6.QtWebEngineWidgets import QWebEngineView
+            from PyQt6.QtWebChannel import QWebChannel
+        else:
+            from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage, QWebEngineProfile
+            from PyQt5.QtWebEngineWidgets import QWebEngineSettings
+            from PyQt5.QtWebChannel import QWebChannel
+        _WEBENGINE_IMPORT_ERROR = None
+        _WEBCHANNEL_IMPORT_ERROR = None
+        break
+    except Exception as exc:  # pragma: no cover - depends on optional Qt module
+        if QWebEngineView is None:
+            _WEBENGINE_IMPORT_ERROR = exc
+        if QWebChannel is None:
+            _WEBCHANNEL_IMPORT_ERROR = exc
 
 _WEBENGINE_CACHE_ROOT = Path.home() / ".cache" / "es.ara.envisage.web_viwer" / "qtwebengine"
 _CLEAR_HTTP_CACHE_ON_START = False
 
 
 logger = logging.getLogger(__name__)
+
+
+class WebChannelBackend(QtCore.QObject):
+    """QObject exposed to JavaScript through QWebChannel as `backend`."""
+
+    messageReceived = QtCore.Signal(str)
+
+    @QtCore.Slot(str)
+    def send_to_python(self, message: str) -> None:
+        logger.info("Mensaje recibido desde JS: %s", message)
+        self.messageReceived.emit(message)
+
+    @QtCore.Slot(result=str)
+    def send_to_javascript(self) -> str:
+        return "Hola desde Python"
+
+
+class LoggingWebEnginePage(QWebEnginePage):
+    """QWebEnginePage that forwards JS console messages to Python logs."""
+
+    def javaScriptConsoleMessage(self, level, message, line_number, source_id):
+        logger.warning("JS console [%s] %s:%s - %s", level, source_id, line_number, message)
 
 
 class WebViewerService:
@@ -42,13 +87,26 @@ class WebViewerTaskPane(TraitsTaskPane):
     _web_control = Any()
     _web_profile = Any()
     _web_page = Any()
+    _web_channel = Any()
+    _web_backend = Any()
 
     def create(self, parent):
         if QWebEngineView is not None:
             control = QWebEngineView(parent)
             self._configure_web_engine(control)
         else:
+            logger.warning(
+                "QWebEngineView no disponible; usando QTextBrowser sin JavaScript. Error import: %s",
+                _WEBENGINE_IMPORT_ERROR,
+            )
             control = QtWidgets.QTextBrowser(parent)
+            control.setHtml(
+                "<html><body>"
+                "<h3>QtWebEngine no disponible</h3>"
+                "<p>Este visor ha usado QTextBrowser y no ejecuta JavaScript ni QWebChannel.</p>"
+                "<p>Revisa la instalacion de PySide6 QtWebEngine.</p>"
+                "</body></html>"
+            )
 
         self._web_control = control
         self.control = control
@@ -71,18 +129,37 @@ class WebViewerTaskPane(TraitsTaskPane):
         if _CLEAR_HTTP_CACHE_ON_START:
             profile.clearHttpCache()
 
-        page = QWebEnginePage(profile, control)
+        page = LoggingWebEnginePage(profile, control)
         control.setPage(page)
+        self._configure_web_channel(page)
         if QWebEngineSettings is not None:
             settings = control.settings()
+            settings.setAttribute(QWebEngineSettings.JavascriptEnabled, True)
             settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
             settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
         self._web_profile = profile
         self._web_page = page
 
+    def _configure_web_channel(self, page) -> None:
+        if QWebChannel is None:
+            logger.warning(
+                "PySide6.QtWebChannel no disponible: backend JS/Python deshabilitado. Error import: %s",
+                _WEBCHANNEL_IMPORT_ERROR,
+            )
+            return
+
+        backend = WebChannelBackend(page)
+        channel = QWebChannel(page)
+        channel.registerObject("backend", backend)
+        page.setWebChannel(channel)
+
+        # Keep strong refs to avoid QObject/channel being garbage-collected.
+        self._web_backend = backend
+        self._web_channel = channel
+
     @observe("page")
     def _on_page_changed(self, event):
-        self._load_url(event.new)
+        self._load_page(event.new)
 
     def _load_page(self, new_page):
         if not new_page:
@@ -108,10 +185,11 @@ class WebViewerTaskPane(TraitsTaskPane):
         if self._web_control is None:
             logger.warning("WebViewerService._web_control is not initialized")
             return
+        qurl = QtCore.QUrl(url) if isinstance(url, str) else url
         if QWebEngineView is not None and isinstance(self._web_control, QWebEngineView):
-            self._web_control.load(url)
+            self._web_control.load(qurl)
             return
-        self._web_control.setSource(url)
+        self._web_control.setSource(qurl)
 
     def _load_html(self, event):
         #TODO

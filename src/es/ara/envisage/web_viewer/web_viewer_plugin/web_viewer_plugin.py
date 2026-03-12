@@ -1,7 +1,5 @@
-
 from envisage.plugin import Plugin
 from envisage.service_offer import ServiceOffer
-from envisage.ui.tasks.task_factory import TaskFactory
 from traits.trait_types import List
 
 

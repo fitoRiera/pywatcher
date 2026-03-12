@@ -8,6 +8,8 @@ Ejecución:
     o
     python src/envisage_app.py
 """
+import logging
+
 from envisage.core_plugin import CorePlugin
 from envisage.ui.tasks.tasks_application import TasksApplication
 from envisage.ui.tasks.tasks_plugin import TasksPlugin
@@ -15,6 +17,8 @@ from envisage.ui.tasks.tasks_plugin import TasksPlugin
 from es.ara.envisage.main_window.main_window_plugin import MainWindowPlugin
 from es.ara.envisage.web_viewer.web_viewer_plugin.web_viewer_plugin import WebViewerPlugin
 from es.ara.envisage.wwd.wwd_plugin import WwdPlugin
+
+logging.basicConfig(level=logging.INFO)
 
 
 def main():

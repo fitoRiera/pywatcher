@@ -32,11 +32,90 @@
       font-size: 14px;
       font-weight: 600;
     }
+
+    .send-btn {
+      position: absolute;
+      top: 58px;
+      left: 12px;
+      z-index: 10;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 6px;
+      background: #1f6feb;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .status {
+      position: absolute;
+      top: 98px;
+      left: 12px;
+      z-index: 10;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      font-size: 12px;
+      max-width: 340px;
+    }
   </style>
 </head>
 <body>
+
   <div class="title">NASA WorldWind Web - Basic Example</div>
+  <button id="sendToPythonButton" class="send-btn" type="button">Send to Python</button>
+  <div class="status" id="connection_status" >Estado: conectando con backend...</div>
   <canvas id="globeCanvas"></canvas>
+  <script>
+    var button = document.getElementById("sendToPythonButton");
+
+    function setStatus(message) {
+      var status = document.getElementById("connection_status");
+      connection_status.textContent = "Estado: conectado!!"
+    }
+
+    function isBackendReady() {
+      return Boolean(window.backend && typeof window.backend.send_to_python === "function");
+    }
+
+    window.addEventListener("backend-ready", function () {
+      console.log("evento backend-ready recibido en BasicExample.html");
+      setStatus("backend listo");
+    });
+    console.log("listener registered");
+
+    window.setTimeout(function () {
+      if (!isBackendReady()) {
+        setStatus("backend no disponible");
+      }
+    }, 2500);
+
+    // Si el evento 'backend-ready' ocurrió antes de registrar el listener.
+    console.log("window.channel = ", window.channel);
+    if (isBackendReady()) {
+      setStatus("backend listo");
+    }
+
+    button.addEventListener("click", function () {
+      console.log("button clicked");
+      if (!isBackendReady()) {
+        setStatus("backend no disponible");
+        console.warn("QWebChannel backend no está disponible todavía.", window.backend);
+        return;
+      }
+      try {
+        console.log("enviando mensaje a Python...");
+        console.log(channel.objects.backend);
+        window.backend.send_to_python("Mensaje desde el botón en BasicExample.html");
+        console.log("mensaje enviado");
+      } catch (error) {
+        console.error("Fallo al invocar backend.send_to_python:", error, window.backend);
+      }
+    });
+  </script>
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <script src="./qwebchannel.js"></script>
   <script src="./BasicExample.js"></script>
 </body>
 </html>
