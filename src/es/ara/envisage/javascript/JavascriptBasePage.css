@@ -1,0 +1,75 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Arial, sans-serif;
+  background: #f4f5f7;
+  color: #1f2933;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+#content {
+  display: none;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.message {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid #c9d1d9;
+  border-top-color: #2f6fed;
+  animation: spin 1s linear infinite;
+}
+
+.script-log {
+  width: 280px;
+  height: 140px;
+  padding: 8px 10px;
+  border: 1px solid #d4d9df;
+  background: #ffffff;
+  color: #2d3740;
+  overflow-y: auto;
+  overflow-x: auto;
+  box-sizing: border-box;
+  font-size: 13px;
+  text-align: left;
+}
+
+.script-line {
+  padding: 2px 0;
+  white-space: nowrap;
+}
+
+.script-index {
+  position: sticky;
+  left: 0;
+  background: #ffffff;
+  white-space: pre;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

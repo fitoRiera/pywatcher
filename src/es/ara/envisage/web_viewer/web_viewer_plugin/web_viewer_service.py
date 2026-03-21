@@ -9,6 +9,8 @@ from pyface.qt import QtCore, QtWidgets
 from pyface.tasks.api import TraitsTaskPane
 from traits.api import Any, Str, observe
 
+from es.ara.envisage.web_viewer.web_viewer_api.api import IWebViewerService
+
 _WEBENGINE_IMPORT_ERROR = None
 _WEBCHANNEL_IMPORT_ERROR = None
 
@@ -97,7 +99,7 @@ class LoggingWebEnginePage(QWebEnginePage):
         logger.warning("JS console [%s] %s:%s - %s", level, source_id, line_number, message)
 
 
-class WebViewerService:
+class WebViewerService(IWebViewerService):
 
     def create_task_pane(self, page: str) -> TraitsTaskPane:
         task_pane = WebViewerTaskPane()
