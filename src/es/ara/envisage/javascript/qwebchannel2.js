@@ -1,4 +1,4 @@
-
+// TODO: Renombrar este archivo a qwebchannel.js y eliminar la duplicidad en el plugin WWD
 class AbstractMethodError extends Error {
   constructor(message) {
     if (message == undefined){
