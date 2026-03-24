@@ -7,12 +7,18 @@
     <link rel="stylesheet" href="JavascriptBasePage.css" />
   </head>
   <body>
-    <div class="container" role="status" aria-live="polite">
+    <div id="loadingView" class="loadView" role="status" aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
       <div class="message">Loading javascritps...</div>
       <div class="script-log" role="log" aria-live="polite"></div>
     </div>
-    <div id="content">carga completada</div>
+    <div id="contentView" class="contentView">carga completada</div>
+    <div id="errorView" class="errorView" role="alert" aria-live="assertive">
+      <div class="errorTitle">Se ha producido un error inesperado</div>
+      <pre id="errorMessage" class="errorMessage"></pre>
+    </div>
+
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <script type="module" src="JavascriptBasePage.js"></script>
   </body>
 </html>
