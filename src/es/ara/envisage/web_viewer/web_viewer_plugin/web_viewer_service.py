@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from pathlib import Path
@@ -11,6 +12,8 @@ from pyface.tasks.api import TraitsTaskPane
 from traits.api import Any, Str, observe
 
 from es.ara.envisage.web_viewer.web_viewer_api.api import IWebViewerService
+from es.ara.envisage.web_viewer.web_viewer_plugin.models import CommandCall, CommandCallResponse, \
+    COMMAND_CALL_RESPONSE_ERROR_PARSING_RESPONSE, COMMAND_CALL_RESPONSE_OK
 
 _WEBENGINE_IMPORT_ERROR = None
 _WEBCHANNEL_IMPORT_ERROR = None
@@ -71,24 +74,37 @@ class WebChannelBackend(QtCore.QObject):
         '''
         logger.info("Message received from javascript: %s", message)
         self.messageReceived.emit(message)
-        return f"ACK: {message}"
+        command_call = CommandCall.from_json(message)
+        return CommandCallResponse(COMMAND_CALL_RESPONSE_OK, command_call.to_dict()).to_json()
 
     def send_to_javascript(
         self,
-        message: str,
-        response_handler: Callable[[str], None] | None = None,
+        message: CommandCall,
+        response_handler: Callable[[CommandCallResponse], None] | None = None,
     ) -> None:
         if self._page is None:
             logger.warning("No QWebEnginePage ready to execute JavaScript functions.")
             return
 
-        script = f"window.qWebIChannel_inputChannel.handleCommandCall({message!r})"
+        script = f"window.qWebIChannel_inputChannel.handleCommandCall({message.to_json()})"
 
-        def _on_reply(result: str) -> None:
+        def _on_reply(response_msg: str) -> None:
+            logger.debug("Response from Javascript: %s", response_msg)
+            try:
+                response = CommandCallResponse.from_json(response_msg)
+            except Exception as exc:
+                logger.exception(f'Exception parsing javascript response to command call')
+                details = {
+                        "exception": str(exc),
+                        "message": response_msg
+                    }
+                response = CommandCallResponse(
+                    code=COMMAND_CALL_RESPONSE_ERROR_PARSING_RESPONSE,
+                    details=json.dumps(details)
+                )
             nonlocal response_handler
-            logger.info("Response from Javascript: %s", result)
             if response_handler:
-                response_handler(result)
+                response_handler(response)
 
         self._page.runJavaScript(script, _on_reply)
 

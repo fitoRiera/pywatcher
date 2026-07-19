@@ -1,4 +1,11 @@
 // TODO: Renombrar este archivo a qwebchannel.js y eliminar la duplicidad en el plugin WWD
+
+
+const COMMAND_CALL_RESPONSE_OK="ACK"
+const COMMAND_CALL_RESPONSE_ERROR_EXECUTOR_NOT_FOUND="EXECUTOR_NOT_FOUND"
+const COMMAND_CALL_RESPONSE_ERROR_PARSING_RESPONSE="ERROR_PARSING_RESPONSE"
+const COMMAND_CALL_RESPONSE_ERROR_EXECUTOR_FAILS="EXECUTOR_FAILS"
+
 class AbstractMethodError extends Error {
   constructor(message) {
     if (message == undefined){
@@ -14,14 +21,62 @@ class CommandExecutor{
         this.name = commandName
     }
 
+    /**
+     * @param {object} args
+     * @returns {CommandCallResponse}
+     */
     execute(args){
-        throw AbstractMethodError()
+        throw new AbstractMethodError()
     }
 }
+
 class CommandCall{
     constructor(name, args){
         this.name = name;
         this.args = args;
+    }
+}
+
+class CommandCallResponse{
+    constructor(code, details){
+        this.code = code;
+        this.details = details;
+    }
+
+    static fromString(responseText){
+        const response = JSON.parse(responseText);
+        return new CommandCallResponse(response.code, response.details);
+    }
+
+    toString(){
+        return JSON.stringify(this);
+    }
+}
+
+class FireEventCommandCall extends CommandCall{
+    constructor(event){
+        super("fireEvent", { event: event });
+    }
+}
+
+class FireEventExecutor extends CommandExecutor{
+    constructor(inputChannel){
+        super("fireEvent");
+        this.inputChannel = inputChannel;
+    }
+
+    /**
+     * @param {object} args
+     * @returns {CommandCallResponse}
+     */
+    execute(args){
+        try{
+            this.inputChannel.handleEvent(args.event);
+            return new CommandCallResponse(COMMAND_CALL_RESPONSE_OK, null);
+        }catch(error){
+            console.error('Error handling event',error)
+            return new CommandCallResponse(COMMAND_CALL_RESPONSE_ERROR_EXECUTOR_FAILS, error)
+        }
     }
 }
 
@@ -35,21 +90,21 @@ class Event{
 
 class EventListener{
     onEvent(event){
-        throw AbstractMethodError()
+        throw new AbstractMethodError()
     }
 }
 
 class IOChannel{
     getChannel(){
         if(metadata.channel == undefined){
-            throw Exception("WebChannel not initialized yet!!");
+            throw new Error("WebChannel not initialized yet!!");
         }
         return metadata.channel;
     }
 
     getBackend(message){
         if(metadata.backend == undefined){
-            throw Exception("WebChannel not initialized yet!!");
+            throw new Error("WebChannel not initialized yet!!");
         }
         return metadata.backend;
     }
@@ -62,12 +117,18 @@ class OutputChannel extends IOChannel{
 
     executeCommand(commandCall){
         const message = JSON.stringify(commandCall)
-        this.getBackend().send_to_python(message)
+        const response = this.getBackend().send_to_python(message)
+        return CommandCallResponse.fromString(response)
     }
 
     fireEvent(event){
-        const message = JSON.stringify(event)
-        this.getBackend().send_to_python(message)
+        const commandCall = new FireEventCommandCall(event)
+        const response = this.executeCommand(commandCall)
+        if(response.code != COMMAND_CALL_RESPONSE_OK){
+            const error = new Error('Error firing: ', response)
+            console.error(error)
+            throw error
+        }
     }
 }
 
@@ -77,33 +138,52 @@ class InputChannel extends IOChannel{
 
     constructor(){
         super();
+        this.addCommandExecutor(new FireEventExecutor(this))
     }
 
     addCommandExecutor(executor){
-        if(self.getExecutor(executor.name) != undefined){
-            throw new Exception(`Executor '${executor.name}' already registered`);
+        if(this.executors[executor.name] != undefined){
+            throw new Error(`Executor '${executor.name}' already registered`);
         }
-        self.executors[executor.name] = executor
+        this.executors[executor.name] = executor
     }
 
     addEventListener(eventName, listener){
-        if(self.getExecutor(executor.name) != undefined){
-            throw new Exception(`Executor '${executor.name}' already registered`);
-        }
-        let event_listeners = self.listeners.eventName
+        let event_listeners = this.listeners[eventName]
         if(event_listeners == undefined){
             event_listeners = []
-            self.listeners.eventName = event_listeners
+            this.listeners[eventName] = event_listeners
         }
         event_listeners.push(listener)
     }
 
     handleCommandCall(commandCall) {
-        console.log(`handleCommandCall(${commandCall.name}, ${commandCall.args})`)
+        if(typeof commandCall === "string"){
+            commandCall = JSON.parse(commandCall)
+        }
+        const response = this._handleCommandCall(commandCall)
+        return response.toString()
+    }
+
+    _handleCommandCall(commandCall) {
+        const executor = this.executors[commandCall.name]
+        if(executor == undefined){
+            console.warn(`Executor '${commandCall.name}' not registered`);
+            return new CommandCallResponse(COMMAND_CALL_RESPONSE_ERROR_EXECUTOR_NOT_FOUND, null)
+        }
+        try{
+            return executor.execute(commandCall.args)
+        }catch(error){
+            console.error(`Error occurred while executing command '${commandCall.name}':`, error)
+            return new CommandCallResponse(COMMAND_CALL_RESPONSE_ERROR_EXECUTOR_FAILS, error)
+        }
     }
 
     handleEvent(event) {
-        console.log(`handleEvent(${event})`)
+        const eventListeners = this.listeners[event.name] || []
+        for(const listener of eventListeners){
+            listener.onEvent(event)
+        }
     }
 }
 
