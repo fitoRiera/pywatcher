@@ -18,6 +18,12 @@ class CommandExecutor{
         throw AbstractMethodError()
     }
 }
+class CommandCall{
+    constructor(name, args){
+        this.name = name;
+        this.args = args;
+    }
+}
 
 class Event{
     constructor(name, source, details){
@@ -33,34 +39,81 @@ class EventListener{
     }
 }
 
-class OutputChannel{
-    constructor(){
+class IOChannel{
+    getChannel(){
+        if(metadata.channel == undefined){
+            throw Exception("WebChannel not initialized yet!!");
+        }
+        return metadata.channel;
     }
 
-    executeCommand(name, args){
-        throw AbstractMethodError()
+    getBackend(message){
+        if(metadata.backend == undefined){
+            throw Exception("WebChannel not initialized yet!!");
+        }
+        return metadata.backend;
+    }
+}
+
+class OutputChannel extends IOChannel{
+    constructor(){
+        super()
+    }
+
+    executeCommand(commandCall){
+        const message = JSON.stringify(commandCall)
+        this.getBackend().send_to_python(message)
     }
 
     fireEvent(event){
-        throw AbstractMethodError()
+        const message = JSON.stringify(event)
+        this.getBackend().send_to_python(message)
     }
 }
 
-class InputChannel{
+class InputChannel extends IOChannel{
+    executors = {}
+    listeners = {}
+
     constructor(){
+        super();
     }
 
     addCommandExecutor(executor){
-        return this.addCommand(executor.name, executor)
+        if(self.getExecutor(executor.name) != undefined){
+            throw new Exception(`Executor '${executor.name}' already registered`);
+        }
+        self.executors[executor.name] = executor
     }
 
     addEventListener(eventName, listener){
-        throw AbstractMethodError()
+        if(self.getExecutor(executor.name) != undefined){
+            throw new Exception(`Executor '${executor.name}' already registered`);
+        }
+        let event_listeners = self.listeners.eventName
+        if(event_listeners == undefined){
+            event_listeners = []
+            self.listeners.eventName = event_listeners
+        }
+        event_listeners.push(listener)
+    }
+
+    handleCommandCall(commandCall) {
+        console.log(`handleCommandCall(${commandCall.name}, ${commandCall.args})`)
+    }
+
+    handleEvent(event) {
+        console.log(`handleEvent(${event})`)
     }
 }
 
 
+const inputChannel = new InputChannel()
+const outputChannel = new OutputChannel()
+
 const metadata = {}
+metadata.inputChannel = inputChannel;
+metadata.outputChannel = outputChannel;
 
 function initWebChannel(onDone, onError, attempt) {
     console.log("initWebChannel...")
@@ -80,6 +133,9 @@ function initWebChannel(onDone, onError, attempt) {
                 metadata.channel = channel;
                 metadata.backend = channel.objects.backend;
                 metadata.backendReady = true;
+                outputChannel.fireEvent(
+                    new Event('webchannel.lifecycle', 'iniWebChannel', null)
+                )
             });
             console.log("QWebChannel ready :D")
             onDone()
@@ -102,4 +158,5 @@ function initWebChannel(onDone, onError, attempt) {
     onError("No se pudo inicializar QWebChannel.");
 };
 
-export {CommandExecutor, OutputChannel, InputChannel, initWebChannel}
+
+export {CommandExecutor, outputChannel, inputChannel, initWebChannel}

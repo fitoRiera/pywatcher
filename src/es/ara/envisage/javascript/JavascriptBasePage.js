@@ -1,4 +1,6 @@
-import { initWebChannel } from './qwebchannel2.js';
+import { initWebChannel, inputChannel } from './qwebchannel2.js';
+
+window.qWebIChannel_inputChannel = inputChannel;
 
 const STATE_ERROR = 'error'
 const STATE_LOADING = 'loading'

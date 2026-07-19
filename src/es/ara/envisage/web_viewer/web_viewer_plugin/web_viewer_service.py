@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
+from typing import Callable
 from urllib.parse import urlparse
 
 from pyface.qt import QtCore, QtWidgets
@@ -63,29 +64,29 @@ class WebChannelBackend(QtCore.QObject):
 
     @QtCore.Slot(str, result=str)
     def send_to_python(self, message: str) -> str:
-        logger.info("Mensaje recibido desde JS: %s", message)
+        '''
+        This method must be called from javascript endpoint only
+        :param event:
+        :return:
+        '''
+        logger.info("Message received from javascript: %s", message)
         self.messageReceived.emit(message)
-        self.send_to_javascript()
         return f"ACK: {message}"
 
-    @QtCore.Slot(result=str)
-    def send_to_javascript(self) -> str:
-        message = "Hola desde Python"
-        #self.messageToJavascript.emit(message)
-        self.call_javascript("hola desde Python", response_handler=logging.error)
-        return message
-
-    @QtCore.Slot(str)
-    def call_javascript(self, message: str, response_handler:callable=None) -> None:
+    def send_to_javascript(
+        self,
+        message: str,
+        response_handler: Callable[[str], None] | None = None,
+    ) -> None:
         if self._page is None:
-            logger.warning("No hay QWebEnginePage asociado para ejecutar JavaScript.")
+            logger.warning("No QWebEnginePage ready to execute JavaScript functions.")
             return
 
-        script = f"window.handleFromPython({message!r})"
+        script = f"window.qWebIChannel_inputChannel.handleCommandCall({message!r})"
 
-        def _on_reply(result):
+        def _on_reply(result: str) -> None:
             nonlocal response_handler
-            logger.info("Respuesta desde JS: %s", result)
+            logger.info("Response from Javascript: %s", result)
             if response_handler:
                 response_handler(result)
 
